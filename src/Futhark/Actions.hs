@@ -61,6 +61,7 @@ import System.Directory
 import System.Exit
 import System.FilePath
 import qualified System.Info
+import Futhark.CodeGen.Backends.GenericC (CParts(cExtraFiles))
 
 -- | Print the result to stdout.
 printAction :: ASTRep rep => Action rep
@@ -317,6 +318,7 @@ compileMulticoreAction fcfg mode outpath =
           liftIO $ T.writeFile jsonpath manifest
         ToExecutable -> do
           liftIO $ T.writeFile cpath $ cPrependHeader $ MulticoreC.asExecutable cprog
+          liftIO $ mapM_ (\(n, l) -> T.writeFile (outpath `addExtension` n) $ cPrependHeader $ l) (cExtraFiles cprog)
           runCC cpath outpath ["-O3", "-std=c99"] ["-lm", "-pthread"]
         ToServer -> do
           liftIO $ T.writeFile cpath $ cPrependHeader $ MulticoreC.asServer cprog

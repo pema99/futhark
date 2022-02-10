@@ -486,6 +486,17 @@ multicoreDef s f = do
   GC.libDecl =<< f s'
   return s'
 
+ispcName :: String -> GC.CompilerM op s Name
+ispcName s = do
+  s' <- newVName ("futhark_mc_ispc_" ++ s)
+  return $ nameFromString $ baseString s' ++ "_" ++ show (baseTag s')
+
+ispcDef :: String -> (Name -> GC.CompilerM op s C.Definition) -> GC.CompilerM op s Name
+ispcDef s f = do
+  s' <- ispcName s
+  GC.extraDecl "ispc" =<< f s'
+  return s'
+
 generateParLoopFn ::
   C.ToIdent a =>
   M.Map VName Space ->
@@ -618,7 +629,7 @@ compileOp (ParLoop s' body free) = do
 
   fstruct <-
     prepareTaskStruct (s' ++ "_parloop_struct") free_args free_ctypes mempty mempty
-
+  
   ftask <- multicoreDef (s' ++ "_parloop") $ \s -> do
     fbody <- benchmarkCode s (Just "tid") <=< GC.inNewFunction $
       GC.cachingMemory lexical $ \decl_cached free_cached -> GC.collect $ do

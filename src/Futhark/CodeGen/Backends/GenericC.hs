@@ -60,6 +60,7 @@ module Futhark.CodeGen.Backends.GenericC
     onClear,
     HeaderSection (..),
     libDecl,
+    extraDecl,
     earlyDecl,
     publicName,
     contextType,
@@ -127,7 +128,8 @@ data CompilerState s = CompilerState
     compProfileItems :: DL.DList C.BlockItem,
     compClearItems :: DL.DList C.BlockItem,
     compDeclaredMem :: [(VName, Space)],
-    compItems :: DL.DList C.BlockItem
+    compItems :: DL.DList C.BlockItem,
+    compExtraDecls :: [(String, DL.DList C.Definition)]
   }
 
 newCompilerState :: VNameSource -> s -> CompilerState s
@@ -145,7 +147,8 @@ newCompilerState src s =
       compProfileItems = mempty,
       compClearItems = mempty,
       compDeclaredMem = mempty,
-      compItems = mempty
+      compItems = mempty,
+      compExtraDecls = mempty
     }
 
 -- | In which part of the header file we put the declaration.  This is
@@ -509,6 +512,11 @@ headerDecl sec def = modify $ \s ->
 libDecl :: C.Definition -> CompilerM op s ()
 libDecl def = modify $ \s ->
   s {compLibDecls = compLibDecls s <> DL.singleton def}
+
+extraDecl :: String -> C.Definition -> CompilerM op s ()
+extraDecl name def = modify $ \s ->
+  s {compExtraDecls = map (\(n, l) ->
+      if n == name then (n, l <> DL.singleton def) else (n, l)) $ compExtraDecls s}
 
 earlyDecl :: C.Definition -> CompilerM op s ()
 earlyDecl def = modify $ \s ->
@@ -1460,7 +1468,8 @@ data CParts = CParts
     cServer :: T.Text,
     cLib :: T.Text,
     -- | The manifest, in JSON format.
-    cJsonManifest :: T.Text
+    cJsonManifest :: T.Text,
+    cExtraFiles :: [(String, T.Text)]
   }
 
 gnuSource :: T.Text
@@ -1593,6 +1602,7 @@ $timingH
 
   let early_decls = T.unlines $ map prettyText $ DL.toList $ compEarlyDecls endstate
       lib_decls = T.unlines $ map prettyText $ DL.toList $ compLibDecls endstate
+      extra_decls = map (\(n, l) -> (n, T.unlines $ map prettyText $ DL.toList l)) $ compExtraDecls endstate
       clidefs = cliDefs options manifest
       serverdefs = serverDefs options manifest
       libdefs =
@@ -1605,7 +1615,6 @@ $timingH
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
-
 $header_extra
 
 $lockH
@@ -1632,7 +1641,8 @@ $entry_point_decls
         cCLI = clidefs,
         cServer = serverdefs,
         cLib = libdefs,
-        cJsonManifest = Manifest.manifestToJSON manifest
+        cJsonManifest = Manifest.manifestToJSON manifest,
+        cExtraFiles = extra_decls
       }
   where
     Definitions consts (Functions funs) = prog
