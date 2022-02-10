@@ -515,8 +515,10 @@ libDecl def = modify $ \s ->
 
 extraDecl :: String -> C.Definition -> CompilerM op s ()
 extraDecl name def = modify $ \s ->
-  s {compExtraDecls = map (\(n, l) ->
-      if n == name then (n, l <> DL.singleton def) else (n, l)) $ compExtraDecls s}
+  s {compExtraDecls = replaceOrAdd $ compExtraDecls s}
+  where replaceOrAdd s =
+          if not $ any ((==name) . fst) s then (name, DL.singleton def) : s
+          else map (\(n, l) -> if n == name then (n, l <> DL.singleton def) else (n, l)) s
 
 earlyDecl :: C.Definition -> CompilerM op s ()
 earlyDecl def = modify $ \s ->

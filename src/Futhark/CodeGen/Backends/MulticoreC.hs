@@ -630,7 +630,7 @@ compileOp (ParLoop s' body free) = do
   fstruct <-
     prepareTaskStruct (s' ++ "_parloop_struct") free_args free_ctypes mempty mempty
   
-  ftask <- multicoreDef (s' ++ "_parloop") $ \s -> do
+  ftask <- ispcDef (s' ++ "_parloop") $ \s -> do
     fbody <- benchmarkCode s (Just "tid") <=< GC.inNewFunction $
       GC.cachingMemory lexical $ \decl_cached free_cached -> GC.collect $ do
         mapM_
