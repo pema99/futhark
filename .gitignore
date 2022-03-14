@@ -53,3 +53,5 @@ core.*
 data/
 lib/
 testparser/
+tests/*.h
+tests/*.ispc
